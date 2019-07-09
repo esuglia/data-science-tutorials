@@ -1,9 +1,11 @@
 #### R for Data Science
 
+# download/load necessary packages
+
 install.packages(c("nycflights13", "gapminder", "Lahman"))
 library("nycflights13", "gapminder", "Lahman")
 
-# to solve a problem, make a reproducible example or "reprex" and put it in stack overflow. In your reprex, include packages, data, and code. To include data, use dput() to generate the Rcode to recreate it:
+# to solve a problem, make a reproducible example or "reprex" and post it in stack overflow. In your reprex, include packages, data, and code. To include data, use dput() to generate the Rcode to recreate it:
 
 dput(mtcars)
 mtcars <-
@@ -62,8 +64,8 @@ ggplot(data = mpg) +
   geom_point(mapping = aes(x = displ, y = hwy))
 
 # the basic template for graphing with ggplot2: 
-ggplot(data = <DATA>) + 
-  <GEOM_FUNCTION>(mapping = aes(<MAPPINGS>))
+#ggplot(data = <DATA>) + 
+#  <GEOM_FUNCTION>(mapping = aes(<MAPPINGS>))
 
 # exercises
 ggplot(data = mpg) # creates empty plot
@@ -291,7 +293,35 @@ p + coord_fixed()
 # if you surround the argument naming an object with parentheses, it will print the object you named
 (y <- seq(1, 10, length.out = 5))
 
+# alt shift K gives you a menu with keyboard shortcuts
 
+#### Ch. 5: Data transformation ####
+
+library("nycflights13")
+library("tidyverse")
+
+# ** Filter rows with filter() ----
+# exercises
+
+# find flights that:
+  # had an arrival delay of two or more hours
+filter(flights, arr_delay >= 120)
+  # flew to Houston (IAH or HOU)
+filter(flights, dest == "IAH" | dest == "HOU")
+filter(flights, dest %in% c("IAH", "HOU")) # more compact; scales to cases where there are more than two airports we are interested in
+  # operated by United, American, or Delta
+glimpse(flights) # codes are UA, AA, DL
+filter(flights, carrier %in% c("AA", "DL", "UA"))
+  # departed in summer (July, Aug, Sept)
+filter(flights, month >= 7, month <= 9)
+filter(flights, month %in% 7:9) # more compact version
+  # arrived more than two hours late, but didn't leave late
+filter(flights, arr_delay > 120, dep_delay <= 0)
+  # were delayed by at least an hour, but made up over 30 min in flight
+filter(flights, dep_delay >= 60, dep_delay - arr_delay > 30)
+  # departed between midnight and 6 am
+summary(flights$dep_time) # midnight is 2400
+filter(flights, dep_time <= 600 | dep_time == 2400)
 
 
 
