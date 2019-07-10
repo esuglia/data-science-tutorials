@@ -471,6 +471,208 @@ delays <- not_cancelled %>%
 ggplot(data = delays, mapping = aes(x = delay)) +
   geom_freqpoly(binwidth = 10)
 
+# we can get a better idea if we draw a scatterplot of # flights vs avg delay:
+delays <- not_cancelled %>% 
+  group_by(tailnum) %>% 
+  summarise(
+    delay = mean(arr_delay, na.rm = TRUE),
+    n = n()
+  )
+
+ggplot(data = delays, mapping = aes(x = n, y = delay)) + 
+  geom_point(alpha = 1/10)
+
+# useful to filter out the groups with the smallest # of observations, so you can see more of the pattern and less of the extreme variation in the smallest groups
+delays %>% 
+  filter(n > 25) %>% 
+  ggplot(mapping = aes(x = n, y = delay)) + 
+  geom_point(alpha = 1/10)
+
+## Useful summary functions
+
+not_cancelled %>%
+  group_by(year, month, day) %>%
+  summarize(
+    avg_delay1 = mean(arr_delay),
+    avg_delay2 = mean(arr_delay[arr_delay > 0]) # average positive delay
+  )
+# uses logical subsetting
+
+# others:
+  # sd(x)  standard deviation
+  # IQR(x)  interquartile range
+  # mad(x)  median absolute deviation
+  # min(x)
+  # first(x)
+  # nth(x,2)
+  # last(x)
+  # count(x)
+
+# some examples
+# how many flights left before 5am?
+not_cancelled %>% 
+  group_by(year, month, day) %>% 
+  summarise(n_early = sum(dep_time < 500))
+
+# what proportion of flights are delayed by more than an hour?
+not_cancelled %>% 
+  group_by(year, month, day) %>% 
+  summarise(hour_perc = mean(arr_delay > 60))
+
+## Grouping by multiple variables
+# each summary peels off one level of the grouping, which makes it easy to progressively roll up a dataset
+daily <- group_by(flights, year, month, day)
+(per_day <- summarize(daily, flights = n()))
+(per_month <- summarise(per_day, flights = sum(flights)))
+(per_year <- summarize(per_month, flight = sum(flights)))
+
+## Ungrouping
+daily %>%
+  ungroup() %>%
+  summarize(flights = n())
+
+# ** Grouped mutates (and filters)
+# find the worst members of each group:
+flights_sml %>%
+  group_by(year, month, day) %>%
+  filter(rank(desc(arr_delay)) < 10) # ranked those that have the highest delay first, then filtered only for the top 9 in that ranking
+
+# find all groups bigger than a threshold:
+popular_dests <- flights %>%
+  group_by(dest) %>%
+  filter(n() > 365)
+popular_dests
+
+# standardize to compute per group metrics (use only for quick and dirty analyses):
+popular_dests %>% 
+  filter(arr_delay > 0) %>% 
+  mutate(prop_delay = arr_delay / sum(arr_delay)) %>% 
+  select(year:day, dest, arr_delay, prop_delay)
+
+#### Ch. 7: Exploratory Data Analysis ####
+
+# ** Questions ----
+
+# In exploratory data analysis, ask many questions in order to home in on specific GOOD quetsions
+# Two types of questions:
+  # 1. What type of variation occurs within my variables?
+  # 2. What type of covariation occurs between my variables?
+
+# ** Visualizing distributions ----
+# there will always be error in data that gives rise to variation
+# best way to understand patterns of variation in a variable is to visualize the distribution of the variable's values
+
+# categorical: can only take one of a small set of values
+  # use a bar chart to examine the distribution of a categorical variable
+  # use count() to see counts of each value of the variable
+# continuous: can take on any of an infinite set of ordered values
+  # use a histogram
+    # set width of intervals in a histogram with binwidth() - always look at several different binwidths
+  # use geom_freqpoly() if you want to overlay multiple histograms - shows with lines instead of bars
+
+# ** Missing values ----
+# replace unusual values with NAs in dataset so you don't erase their existence
+diamonds2 <- diamonds %>% 
+  mutate(y = ifelse(y < 3 | y > 20, NA, y))
+
+# compare scheduled departure times for cancelled and non-cancelled times, using is.na to make a new variable
+nycflights13::flights %>% 
+  mutate(
+    cancelled = is.na(dep_time),
+    sched_hour = sched_dep_time %/% 100,
+    sched_min = sched_dep_time %% 100,
+    sched_dep_time = sched_hour + sched_min / 60
+  ) %>% 
+  ggplot(mapping = aes(sched_dep_time)) + 
+  geom_freqpoly(mapping = aes(colour = cancelled), binwidth = 1/4)
+
+# ** Covariation ----
+## A categorical and a continuous variable
+ggplot(data = diamonds, mapping = aes(x = price)) + 
+  geom_freqpoly(mapping = aes(colour = cut), binwidth = 500)
+# hard to see overall difference because counts differ so much, so use density to standardize:
+ggplot(data = diamonds, mapping = aes(x = price, y = ..density..)) + 
+  geom_freqpoly(mapping = aes(colour = cut), binwidth = 500)
+# boxplots
+ggplot(data = diamonds, mapping = aes(x = cut, y = price)) +
+  geom_boxplot()
+# use reorder() to visualize in a particular order
+# for example, use mpg dataset to reorder class based on the median value of hwy
+ggplot(data = mpg) +
+  geom_boxplot(mapping = aes(x = reorder(class, hwy, FUN = median), y = hwy))
+
+## Two categorical variables
+# need to count # obsvs for each combination - can rely on built-in geom_count()
+ggplot(data = diamonds) +
+  geom_count(mapping = aes(x = cut, y = color))
+# or can compute count with dplyr:
+diamonds %>% 
+  count(color, cut) %>%
+  ggplot(mapping = aes(x = color, y = cut)) +
+  geom_tile(mapping = aes(fill = n)) # then visualize ith geom_tile() and the fill aesthetic
+# If the categorical variables are unordered, you might want to use the seriation package to simultaneously reorder the rows and columns in order to more clearly reveal interesting patterns. For larger plots, you might want to try the d3heatmap or heatmaply packages, which create interactive plots.
+
+## Two continuous variables 
+# scatterplots become less useful as your dataset gets bigger, because points overplot
+# can add transparency
+ggplot(data = diamonds) + 
+  geom_point(mapping = aes(x = carat, y = price), alpha = 1 / 100)
+# can use binning
+smaller <- diamonds %>% 
+  filter(carat < 3)
+ggplot(data = smaller) +
+  geom_bin2d(mapping = aes(x = carat, y = price)) # creates rectangular bins
+install.packages("hexbin")
+ggplot(data = smaller) +
+  geom_hex(mapping = aes(x = carat, y = price)) # creates hexagonal bins
+# can bin one continuous variable so it acts like a categorical variable
+ggplot(data = smaller, mapping = aes(x = carat, y = price)) + 
+  geom_boxplot(mapping = aes(group = cut_width(carat, 0.1)))
+# cut_width(x, width), as used above, divides x into bins of width width. By default, boxplots look roughly the same (apart from number of outliers) regardless of how many observations there are, so it’s difficult to tell that each boxplot summarises a different number of points. One way to show that is to make the width of the boxplot proportional to the number of points with varwidth = TRUE.
+# or use cut_number to display about the same number of points in each bin
+ggplot(data = smaller, mapping = aes(x = carat, y = price)) + 
+  geom_boxplot(mapping = aes(group = cut_number(carat, 20)))
+
+# ** Patterns and models ----
+
+# If you see a pattern, ask yourself:
+
+  # Could this pattern be due to coincidence (i.e. random chance)?
+  # How can you describe the relationship implied by the pattern?
+  # How strong is the relationship implied by the pattern?
+  # What other variables might affect the relationship?
+  # Does the relationship change if you look at individual subgroups of the data?
+
+# Models
+# example: in the diamond data, it's hard to understand the relationship between cut and price because cut*carat and carat*price are tightly related
+# remove relationship between price and carat so we can explore the subtelties that remain
+# this code fits a model that predicts price from carat and then computes the residuals (diff b/w predicted value and actual value)
+library(modelr)
+
+mod <- lm(log(price) ~ log(carat), data = diamonds)
+
+diamonds2 <- diamonds %>% 
+  add_residuals(mod) %>% 
+  mutate(resid = exp(resid))
+
+ggplot(data = diamonds2) + 
+  geom_point(mapping = aes(x = carat, y = resid))
+
+# once you remove the relationship between carat and price, you see that relative to their size, better quality diamonds are more expensive:
+ggplot(data = diamonds2) + 
+  geom_boxplot(mapping = aes(x = cut, y = resid))
+
+## Note about ggplot2 calls: can shorten
+ggplot(data = faithful, mapping = aes(x = eruptions)) + 
+  geom_freqpoly(binwidth = 0.25)
+ggplot(faithful, aes(eruptions)) + 
+  geom_freqpoly(binwidth = 0.25)
+# same with end of pipeline visualization
+diamonds %>% 
+  count(cut, clarity) %>% 
+  ggplot(aes(clarity, cut, fill = n)) + 
+  geom_tile()
+
 
 
 
