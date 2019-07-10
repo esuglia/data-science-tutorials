@@ -323,5 +323,68 @@ filter(flights, dep_delay >= 60, dep_delay - arr_delay > 30)
 summary(flights$dep_time) # midnight is 2400
 filter(flights, dep_time <= 600 | dep_time == 2400)
 
+# between() is another useful function in dplyr
+filter(flights, between(month, 7, 9))
+
+# how many flights have a missing dep_time?
+filter(flights, is.na(dep_time))
+
+# ** Arrange rows with arrange() ----
+
+# exercises
+
+# how could you use arrange() to sort all missing values to the start?
+arrange(flights, dep_time) %>%
+  tail() # arrange puts NA values last
+arrange(flights, desc(is.na(dep_time)), dep_time)
+  # desc is descending, asc is ascending
+  # flights first sorted by desc(is.na(dep_time)). Since it's either TRUE when dep_time is missing, or FALSE when it is not, the rows with missing values of dep_time will come first, since TRUE > FALSE
+
+# sort flights to find the most delayed flights. Find the flights that left earliest.
+arrange(flights, desc(dep_delay))
+arrange(flights, dep_delay) # default is ascending order
+
+# sort flights to find the fastest flights
+(fastest_flights <- mutate(flights, mph = distance / air_time * 60))
+(fastest_flights <- select(
+  fastest_flights, mph, distance, air_time, flight, origin, dest, year, month, day
+))
+head(arrange(fastest_flights, desc(mph)))
+
+# which flights traveled the longest? Which traveled the shortest?
+arrange(flights, desc(distance))
+arrange(flights, distance)
+
+# ** Select columns with select() ----
+
+select(flights, year, month, day)
+select(flights, year:day)
+select(flights, -(year:day)) # can exclude whatever you want too
+
+# helper functions:
+
+  # starts_with("abc")
+  # ends_with("xyz")
+  # contains("ijk")  careful with this one; the default is to ignore case. to change, add argument ignore.case = FALSE
+  # matches("(.)\\1) 
+  # num_range("x", 1:3)  matches x1, x2, x3
+
+# select() can be used to rename variables, but better to use rename:
+rename(flights, tail_num = tailnum)
+
+# what happens if you include the name of a variable multiple times in select()?
+# select() ignores the duplication - useful because you can rearrange columns freely:
+
+select(flights, dep_time, everything())
+
+# one_of() function selects variables with a character vector rather than unquoted variable name arguments
+vars <- c("year", "month", "day", "dep_delay", "arr_delay")
+select(flights, one_of(vars))
+
+# can also provide the name of a vector containing the variable names you'd like to select
+select(flights, vars) # when doing this, make sure vars is not the name of a column in flights
+
+# ** Add new variables with mutate() ----
+
 
 
