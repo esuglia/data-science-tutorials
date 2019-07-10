@@ -1,4 +1,4 @@
-#### R for Data Science
+#### R for Data Science: Data Exploration (Ch. 1-8)
 
 # download/load necessary packages
 
