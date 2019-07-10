@@ -386,5 +386,92 @@ select(flights, vars) # when doing this, make sure vars is not the name of a col
 
 # ** Add new variables with mutate() ----
 
+# adds to end of df, so start w/a narrower dataset (small version of flights):
+flights_sml <- select(flights, 
+                      year:day, 
+                      ends_with("delay"), 
+                      distance, 
+                      air_time
+)
+
+# remember, the easiest way to see all the columns is View()
+View(flights_sml)
+
+mutate(flights_sml,
+       gain = dep_delay - arr_delay,
+       speed = distance / air_time * 60
+)
+
+# you can now refer to columns you've just created
+mutate(flights_sml,
+       gain = dep_delay - arr_delay,
+       hours = air_time / 60,
+       gain_per_hour = gain / hours
+)
+
+# if you only want to keep the new varaibles, use transmute():
+
+transmute(flights,
+          gain = dep_delay - arr_delay,
+          hours = air_time / 60,
+          gain_per_hour = gain / hours)
+
+# lots of useful creation functions to make new variables with mutate(): arithmetic, log, lead, lag, cumulative aggregates like cumsum, cummax, cummean, etc., ranking functions like min_rank, percent_rank
+
+# ** Grouped summaries with summarise() ----
+
+summarize(flights, delay = mean(dep_delay, na.rm = TRUE))
+
+# more useful when paired with group_by()
+by_day <- group_by(flights, year, month, day)
+summarize(by_day, delay = mean(dep_delay, na.rm = TRUE))
+
+# ** Combining multiple operations with the pipe ----
+
+# if you want to explore the relationship between flight time and delays, you may do this:
+
+by_dest <- group_by(flights, dest)
+delay <- summarise(by_dest,
+                   count = n(),
+                   dist = mean(distance, na.rm = TRUE),
+                   delay = mean(arr_delay, na.rm = TRUE)
+)
+delay <- filter(delay, count > 20, dest != "HNL")
+
+# with piping, you can get rid of all the steps assigning names and just perform operations sequentially:
+delays <- flights %>% 
+  group_by(dest) %>% 
+  summarise(
+    count = n(),
+    dist = mean(distance, na.rm = TRUE),
+    delay = mean(arr_delay, na.rm = TRUE)
+  ) %>% 
+  filter(count > 20, dest != "HNL")
+
+# important point about NAs: aggregate functions will return NA if there are any missing values in the input, so always use na.rm in summarize, mean, etc.
+# in this dataset, could also tackle problem by removing cancelled flights
+
+not_cancelled <- flights %>%
+  filter(!is.na(dep_delay), !is.na(arr_delay))
+
+not_cancelled %>%
+  group_by(year, month, day) %>%
+  summarize(mean = mean(dep_delay))
+
+## Counts
+# whenever you do an aggregation, it's a good idea to include a count (n()), or a count of non-missing values (sum(!is.na(x))). That way you can check that you're not drawing conclusions based on very small amounts of data.
+# example:
+
+delays <- not_cancelled %>%
+  group_by(tailnum) %>%
+  summarize(
+    delay = mean(arr_delay)
+  )
+
+ggplot(data = delays, mapping = aes(x = delay)) +
+  geom_freqpoly(binwidth = 10)
+
+
+
 
 
